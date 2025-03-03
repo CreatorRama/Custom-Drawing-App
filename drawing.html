@@ -5,37 +5,96 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Advanced Freehand Drawing</title>
     <style>
-        body { text-align: center; background: #f0f0f0; }
-        canvas { border: 2px solid black; background: white; touch-action: none; cursor: crosshair; }
-        .controls { margin: 10px; }
-        button, input { padding: 8px 15px; margin: 5px; font-size: 16px; }
+        body { 
+            text-align: center; 
+            background: #f0f0f0; 
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            padding: 10px;
+        }
+        canvas { 
+            border: 2px solid black; 
+            background: white; 
+            touch-action: none; 
+            cursor: crosshair; 
+            width: 95%;
+            max-width: 800px;
+            height: auto;
+        }
+        .controls { 
+            display: flex; 
+            flex-wrap: wrap; 
+            justify-content: center;
+            gap: 5px;
+            margin: 10px 0; 
+            width: 95%;
+            max-width: 800px;
+        }
+        button, input, select { 
+            padding: 8px 12px; 
+            font-size: 14px; 
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button {
+            background: #007bff; 
+            color: white;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        input[type="color"], input[type="range"], select {
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
-    <h2>Advanced Freehand Drawing</h2>
-    <div class="controls">
-        <input type="color" id="colorPicker" value="#000000">
-        <input type="range" id="thicknessSlider" min="1" max="10" value="3">
-        <select id="brushType">
-            <option value="normal">Normal</option>
-            <option value="airbrush">Airbrush</option>
-            <option value="watercolor">Watercolor</option>
-        </select>
-        <button onclick="toggleEraser()">Toggle Eraser</button>
-        <button onclick="undo()">Undo</button>
-        <button onclick="redo()">Redo</button>
-        <button onclick="clearCanvas()">Clear</button>
-        <button onclick="saveCanvas()">Save</button>
-        <button onclick="loadCanvas()">Load</button>
-        <button onclick="downloadCanvas()">Download</button>
+    <div class="container">
+        <h2>Advanced Freehand Drawing</h2>
+        <div class="controls">
+            <input type="color" id="colorPicker" value="#000000">
+            <input type="range" id="thicknessSlider" min="1" max="10" value="3">
+            <select id="brushType">
+                <option value="normal">Normal</option>
+                <option value="airbrush">Airbrush</option>
+                <option value="watercolor">Watercolor</option>
+            </select>
+            <button onclick="toggleEraser()">Eraser</button>
+            <button onclick="undo()">Undo</button>
+            <button onclick="redo()">Redo</button>
+            <button onclick="clearCanvas()">Clear</button>
+            <button onclick="saveCanvas()">Save</button>
+            <button onclick="loadCanvas()">Load</button>
+            <button onclick="downloadCanvas()">Download</button>
+        </div>
+        <canvas id="drawingCanvas"></canvas>
     </div>
-    <canvas id="drawingCanvas" width="800" height="500"></canvas>
+
     <script>
         const canvas = document.getElementById("drawingCanvas");
         const ctx = canvas.getContext("2d");
+
         let drawing = false, lastX = 0, lastY = 0;
         let strokes = [], redoStack = [];
         let erasing = false;
+
+        function resizeCanvas() {
+            const aspectRatio = 800 / 500;
+            canvas.width = Math.min(window.innerWidth * 0.95, 800);
+            canvas.height = canvas.width / aspectRatio;
+            redraw();
+        }
+
+        window.addEventListener("resize", resizeCanvas);
+        resizeCanvas();
 
         function startDrawing(event) {
             drawing = true;
@@ -94,7 +153,7 @@
             ctx.globalAlpha = 0.2; // Semi-transparent
             ctx.lineCap = "round";
             ctx.lineJoin = "round";
-            ctx.lineWidth = size * 2; // Softer look
+            ctx.lineWidth = size * 2;
             ctx.strokeStyle = color;
             ctx.beginPath();
             ctx.moveTo(x1, y1);
