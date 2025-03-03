@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Freehand Drawing</title>
+    <style>
+        body { text-align: center; background: #f0f0f0; }
+        canvas { border: 2px solid black; background: white; touch-action: none; cursor: crosshair; }
+        .controls { margin: 10px; }
+        button, input { padding: 8px 15px; margin: 5px; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <h2>Advanced Freehand Drawing</h2>
+    <div class="controls">
+        <input type="color" id="colorPicker" value="#000000">
+        <input type="range" id="thicknessSlider" min="1" max="10" value="3">
+        <select id="brushType">
+            <option value="normal">Normal</option>
+            <option value="airbrush">Airbrush</option>
+            <option value="watercolor">Watercolor</option>
+        </select>
+        <button onclick="toggleEraser()">Toggle Eraser</button>
+        <button onclick="undo()">Undo</button>
+        <button onclick="redo()">Redo</button>
+        <button onclick="clearCanvas()">Clear</button>
+        <button onclick="saveCanvas()">Save</button>
+        <button onclick="loadCanvas()">Load</button>
+        <button onclick="downloadCanvas()">Download</button>
+    </div>
+    <canvas id="drawingCanvas" width="800" height="500"></canvas>
+    <script>
+        const canvas = document.getElementById("drawingCanvas");
+        const ctx = canvas.getContext("2d");
+        let drawing = false, lastX = 0, lastY = 0;
+        let strokes = [], redoStack = [];
+        let erasing = false;
+
+        function startDrawing(event) {
+            drawing = true;
+            redoStack = [];
+            let { x, y } = getCoordinates(event);
+            lastX = x;
+            lastY = y;
+            const color = document.getElementById("colorPicker").value;
+            const size = document.getElementById("thicknessSlider").value;
+            const brush = document.getElementById("brushType").value;
+            strokes.push([{ x, y, color, size, brush }]);
+        }
+
+        function draw(event) {
+            if (!drawing) return;
+            let { x, y } = getCoordinates(event);
+            let lastStroke = strokes[strokes.length - 1];
+            lastStroke.push({ x, y });
+
+            let brushType = lastStroke[0].brush;
+            if (brushType === "airbrush") {
+                applyAirbrushEffect(x, y, lastStroke[0].color, lastStroke[0].size);
+            } else if (brushType === "watercolor") {
+                applyWatercolorEffect(lastX, lastY, x, y, lastStroke[0].color, lastStroke[0].size);
+            } else {
+                applyBrushEffect(lastX, lastY, x, y, lastStroke[0].color, lastStroke[0].size);
+            }
+
+            lastX = x;
+            lastY = y;
+        }
+
+        function stopDrawing() { drawing = false; }
+
+        function applyBrushEffect(x1, y1, x2, y2, color, size) {
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.lineWidth = size;
+            ctx.strokeStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        }
+
+        function applyAirbrushEffect(x, y, color, size) {
+            ctx.fillStyle = color;
+            for (let i = 0; i < size * 3; i++) {
+                let offsetX = (Math.random() - 0.5) * size * 3;
+                let offsetY = (Math.random() - 0.5) * size * 3;
+                ctx.fillRect(x + offsetX, y + offsetY, 1, 1);
+            }
+        }
+
+        function applyWatercolorEffect(x1, y1, x2, y2, color, size) {
+            ctx.globalAlpha = 0.2; // Semi-transparent
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.lineWidth = size * 2; // Softer look
+            ctx.strokeStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.globalAlpha = 1; // Reset transparency
+        }
+
+        function getCoordinates(event) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: event.clientX ? event.clientX - rect.left : event.touches[0].clientX - rect.left,
+                y: event.clientY ? event.clientY - rect.top : event.touches[0].clientY - rect.top
+            };
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            strokes = [];
+            redoStack = [];
+        }
+
+        function undo() {
+            if (strokes.length === 0) return;
+            redoStack.push(strokes.pop());
+            redraw();
+        }
+
+        function redo() {
+            if (redoStack.length === 0) return;
+            strokes.push(redoStack.pop());
+            redraw();
+        }
+
+        function toggleEraser() {
+            erasing = !erasing;
+            ctx.globalCompositeOperation = erasing ? "destination-out" : "source-over";
+        }
+
+        function saveCanvas() {
+            localStorage.setItem("drawing", JSON.stringify(strokes));
+        }
+
+        function loadCanvas() {
+            let savedData = localStorage.getItem("drawing");
+            if (savedData) {
+                strokes = JSON.parse(savedData);
+                redraw();
+            }
+        }
+
+        function downloadCanvas() {
+            let link = document.createElement("a");
+            link.download = "drawing.png";
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+        }
+
+        function redraw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            strokes.forEach(stroke => {
+                ctx.beginPath();
+                let brushType = stroke[0].brush;
+                for (let i = 1; i < stroke.length; i++) {
+                    let { x, y } = stroke[i];
+                    if (brushType === "airbrush") {
+                        applyAirbrushEffect(x, y, stroke[0].color, stroke[0].size);
+                    } else if (brushType === "watercolor") {
+                        applyWatercolorEffect(stroke[i - 1].x, stroke[i - 1].y, x, y, stroke[0].color, stroke[0].size);
+                    } else {
+                        applyBrushEffect(stroke[i - 1].x, stroke[i - 1].y, x, y, stroke[0].color, stroke[0].size);
+                    }
+                }
+            });
+        }
+
+        canvas.addEventListener("mousedown", startDrawing);
+        canvas.addEventListener("mousemove", draw);
+        canvas.addEventListener("mouseup", stopDrawing);
+        canvas.addEventListener("mouseout", stopDrawing);
+        canvas.addEventListener("touchstart", startDrawing);
+        canvas.addEventListener("touchmove", draw);
+        canvas.addEventListener("touchend", stopDrawing);
+    </script>
+</body>
+</html>
